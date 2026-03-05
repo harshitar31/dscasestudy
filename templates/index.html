@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Distributed Node Dashboard</title>
+    <!-- Use FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg-color: #0f172a;
@@ -15,6 +18,7 @@
             --border: #334155;
             --success: #10b981;
             --danger: #ef4444;
+            --warning: #f59e0b;
         }
 
         body {
@@ -33,6 +37,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 30px;
+            text-align: center;
         }
 
         .dashboard {
@@ -57,12 +62,22 @@
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
         }
 
-        h2 {
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border-bottom: 1px solid var(--border);
             padding-bottom: 10px;
-            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            margin: 0;
             color: var(--primary);
             font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .data-row {
@@ -73,11 +88,17 @@
             border-bottom: 1px dashed var(--border);
         }
 
-        .data-label { color: var(--text-muted); font-size: 0.9rem;}
-        .data-value { font-weight: bold; }
+        .data-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .data-value {
+            font-weight: bold;
+        }
 
         pre {
-            background-color: rgba(0,0,0,0.3);
+            background-color: rgba(0, 0, 0, 0.3);
             padding: 10px;
             border-radius: 6px;
             overflow-x: auto;
@@ -91,7 +112,6 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-top: 15px;
         }
 
         input {
@@ -102,8 +122,10 @@
             border-radius: 6px;
             outline: none;
         }
-        
-        input:focus { border-color: var(--primary); }
+
+        input:focus {
+            border-color: var(--primary);
+        }
 
         button {
             background: linear-gradient(to right, var(--primary), #2563eb);
@@ -114,146 +136,352 @@
             cursor: pointer;
             font-weight: bold;
             transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        button:hover { opacity: 0.9; }
-        .btn-checkout { background: linear-gradient(to right, var(--success), #059669); }
-        .btn-checkout:hover { opacity: 0.9; }
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .btn-checkout {
+            background: linear-gradient(to right, var(--success), #059669);
+        }
+
+        .btn-checkout:hover {
+            opacity: 0.9;
+        }
+
+        .btn-icon {
+            background: var(--surface-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-icon:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: linear-gradient(to right, var(--danger), #b91c1c);
+        }
+
+        .btn-primary-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-primary-outline:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
 
         .status-msg {
             margin-top: 10px;
             font-size: 0.9rem;
             min-height: 20px;
+            text-align: center;
         }
 
-        .success { color: var(--success); }
-        .error { color: var(--danger); }
-        
-        .badge {
-            background-color: var(--primary);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            margin-left: 5px;
-            display: inline-block;
+        .success {
+            color: var(--success);
+        }
+
+        .error {
+            color: var(--danger);
+        }
+
+        /* Accordion / Hidden Content */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 500px;
+        }
+
+        /* Direct Add Buttons */
+        .quick-add-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quick-add-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-add-btn:hover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            transform: scale(1.02);
+        }
+
+        .quick-add-btn i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .item-icon {
+            font-size: 1.2rem;
+            margin-right: 8px;
+            vertical-align: middle;
+            color: var(--secondary);
         }
     </style>
 </head>
+
 <body>
 
-    <h1 id="node-title">Node Dashboard</h1>
+    <h1 id="node-title"><i class="fa-solid fa-server"></i> Node Dashboard</h1>
 
     <div class="dashboard">
-        <!-- Node Info -->
-        <div class="card">
-            <h2>System Status</h2>
-            <div class="data-row"><span class="data-label">Node ID</span><span class="data-value" id="info-id">-</span></div>
-            <div class="data-row"><span class="data-label">Port</span><span class="data-value" id="info-port">-</span></div>
-            <div class="data-row"><span class="data-label">Read Quorum (R)</span><span class="data-value" id="info-r">-</span></div>
-            <div class="data-row"><span class="data-label">Write Quorum (W)</span><span class="data-value" id="info-w">-</span></div>
-            <div class="data-row"><span class="data-label">Total Nodes (N)</span><span class="data-value" id="info-n">-</span></div>
-            
-            <div class="form-group" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
-                <label class="data-label">Update Quorum Configuration</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="number" id="input-r" placeholder="R Value" min="1" max="5" style="width: 50%;">
-                    <input type="number" id="input-w" placeholder="W Value" min="1" max="5" style="width: 50%;">
+        <!-- System Status (Collapsible) -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-header" style="cursor: pointer;" onclick="toggleSystemStatus()">
+                <h2><i class="fa-solid fa-gear"></i> System Details & Config</h2>
+                <i class="fa-solid fa-chevron-down" id="status-toggle-icon"></i>
+            </div>
+
+            <div id="system-status-content" class="collapsible-content">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div>
+                        <div class="data-row"><span class="data-label">Node ID</span><span class="data-value"
+                                id="info-id">-</span></div>
+                        <div class="data-row"><span class="data-label">Port</span><span class="data-value"
+                                id="info-port">-</span></div>
+                        <div class="data-row"><span class="data-label">Read Quorum (R)</span><span class="data-value"
+                                id="info-r">-</span></div>
+                        <div class="data-row"><span class="data-label">Write Quorum (W)</span><span class="data-value"
+                                id="info-w">-</span></div>
+                        <div class="data-row"><span class="data-label">Total Nodes (N)</span><span class="data-value"
+                                id="info-n">-</span></div>
+                    </div>
+
+                    <div class="form-group" style="border-left: 1px solid var(--border); padding-left: 20px;">
+                        <label class="data-label">Update Quorum Configuration</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="input-r" placeholder="R Value" min="1" max="5" style="width: 50%;">
+                            <input type="number" id="input-w" placeholder="W Value" min="1" max="5" style="width: 50%;">
+                        </div>
+                        <button onclick="updateConfig()"><i class="fa-solid fa-check"></i> Apply Configuration</button>
+                        <div id="config-status" class="status-msg"></div>
+                    </div>
                 </div>
-                <button onclick="updateConfig()">Apply Configuration</button>
-                <div id="config-status" class="status-msg"></div>
             </div>
         </div>
 
         <!-- Inventory -->
         <div class="card">
-            <h2>Global Inventory</h2>
+            <div class="card-header">
+                <h2><i class="fa-solid fa-boxes-stacked"></i> Global Inventory</h2>
+                <button class="btn-icon" title="Reset Inventory to Defaults" onclick="resetInventory()"><i
+                        class="fa-solid fa-rotate-left"></i></button>
+            </div>
             <div id="inventory-container">Loading...</div>
+            <div id="inv-status" class="status-msg"></div>
+        </div>
+
+        <!-- Cart Operations (Direct Add) -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-cart-arrow-down"></i> Add to Cart</h2>
+            </div>
+            <div class="form-group">
+                <label class="data-label">Active User ID:</label>
+                <input type="text" id="add-user-id" placeholder="User ID" value="user1"
+                    oninput="document.getElementById('view-user-id').value = this.value">
+
+                <h3 style="font-size: 1rem; color: var(--text-muted); margin-top: 15px; margin-bottom: 5px;">Quick Add
+                    Items:</h3>
+
+                <div class="quick-add-grid" id="quick-add-grid">
+                    <!-- Dynamic buttons injected here -->
+                </div>
+
+                <div id="add-status" class="status-msg"></div>
+            </div>
         </div>
 
         <!-- Cart View -->
         <div class="card">
-            <h2>Viewing Cart</h2>
+            <div class="card-header">
+                <h2><i class="fa-solid fa-shopping-cart"></i> Cart Manager</h2>
+            </div>
+
             <div class="form-group" style="margin-top: 0; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="view-user-id" placeholder="User ID (e.g., user1)" value="user1" style="flex-grow: 1;">
-                    <button onclick="fetchState()" style="padding: 10px 15px;">Refresh</button>
+                    <input type="text" id="view-user-id" placeholder="User ID" value="user1" style="flex-grow: 1;"
+                        oninput="document.getElementById('add-user-id').value = this.value">
+                    <button class="btn-primary-outline" onclick="fetchState()"><i
+                            class="fa-solid fa-arrows-rotate"></i></button>
                 </div>
             </div>
-            
+
             <div id="cart-contents">
-                <div style="color: var(--text-muted); font-style: italic;">No items in cart</div>
+                <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;"><i
+                        class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                    No items in cart</div>
             </div>
-            
+
             <div style="margin-top: 15px;">
                 <span class="data-label">Vector Clock:</span>
                 <pre id="cart-vc">{}</pre>
             </div>
-            
-            <button class="btn-checkout" style="width: 100%; margin-top: 20px;" onclick="checkout()">Checkout Cart</button>
-            <div id="checkout-status" class="status-msg"></div>
-        </div>
 
-        <!-- Cart Operations -->
-        <div class="card">
-            <h2>Add to Cart (Write)</h2>
-            <div class="form-group">
-                <input type="text" id="add-user-id" placeholder="User ID" value="user1">
-                <input type="text" id="add-item-id" placeholder="Item ID (e.g., laptop)">
-                <input type="number" id="add-qty" placeholder="Quantity" value="1" min="1">
-                <button onclick="addToCart()">Add Item</button>
-                <div id="add-status" class="status-msg"></div>
-            </div>
+            <button class="btn-checkout" style="width: 100%; margin-top: 20px; padding: 12px; font-size: 1.1rem;"
+                onclick="checkout()"><i class="fa-solid fa-money-check-dollar"></i> Request Checkout</button>
+            <div id="checkout-status" class="status-msg"></div>
         </div>
 
     </div>
 
     <script>
         let currentNodeId = "";
-        
+
+        // Icon mapping helper
+        const itemIcons = {
+            'laptop': 'fa-laptop',
+            'mouse': 'fa-computer-mouse',
+            'keyboard': 'fa-keyboard',
+            'monitor': 'fa-desktop',
+            'phone': 'fa-mobile-screen',
+            'tablet': 'fa-tablet-screen-button'
+        };
+
+        function getIconClass(itemName) {
+            const key = itemName.toLowerCase();
+            return itemIcons[key] || 'fa-box'; // Default to a box icon
+        }
+
+        function toggleSystemStatus() {
+            const content = document.getElementById('system-status-content');
+            const icon = document.getElementById('status-toggle-icon');
+
+            content.classList.toggle('expanded');
+            if (content.classList.contains('expanded')) {
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+
+        async function resetInventory() {
+            if (!confirm("Are you sure you want to reset all inventory stock across all nodes?")) return;
+
+            const statusEl = document.getElementById('inv-status');
+            statusEl.textContent = "Resetting Inventory...";
+            statusEl.className = "status-msg";
+
+            try {
+                // Default stocks
+                const updates = { "updates": { "laptop": 25, "mouse": 100 } };
+                const res = await fetch('/inventory/manage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                if (res.ok) {
+                    statusEl.textContent = "Inventory reset and replicating!";
+                    statusEl.className = "status-msg success";
+                    fetchState();
+                }
+            } catch (e) {
+                statusEl.textContent = "Error resetting inventory";
+                statusEl.className = "status-msg error";
+            }
+        }
+
         async function fetchState() {
             try {
                 const userId = document.getElementById('view-user-id').value || "user1";
                 const response = await fetch(`/state?user_id=${userId}`);
                 const data = await response.json();
-                
+
                 // Update Node Info
-                document.getElementById('node-title').textContent = `${data.node_id.toUpperCase()} Dashboard`;
+                document.getElementById('node-title').innerHTML = `<i class="fa-solid fa-server"></i> Node ${data.node_id.toUpperCase()}`;
                 document.getElementById('info-id').textContent = data.node_id;
                 document.getElementById('info-port').textContent = data.port;
                 document.getElementById('info-r').textContent = data.r;
                 document.getElementById('info-w').textContent = data.w;
                 document.getElementById('info-n').textContent = data.n;
-                
+
                 currentNodeId = data.node_id;
 
                 // Update Inventory
                 let invHtml = '';
+                let quickAddHtml = '';
+
                 for (const [item, details] of Object.entries(data.inventory)) {
+                    const iconClass = getIconClass(item);
+
+                    // Build Inventory List 
                     invHtml += `
-                        <div style="margin-bottom: 15px;">
-                            <div class="data-row">
-                                <span style="font-size: 1.1rem; text-transform: capitalize; color: var(--primary)">${item}</span>
-                                <span class="data-value" style="color: ${details.stock > 0 ? 'inherit' : 'var(--danger)'}">Stock: ${details.stock}</span>
+                        <div style="margin-bottom: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px;">
+                            <div class="data-row" style="border-bottom: none;">
+                                <span style="font-size: 1.1rem; text-transform: capitalize; color: var(--primary)">
+                                    <i class="fa-solid ${iconClass} item-icon"></i>${item}
+                                </span>
+                                <span class="data-value" style="color: ${details.stock > 0 ? 'var(--success)' : 'var(--danger)'}; display: flex; align-items: center; gap: 5px;">
+                                    ${details.stock > 0 ? '<i class="fa-solid fa-check-circle"></i>' : '<i class="fa-solid fa-xmark-circle"></i>'} 
+                                    Stock: ${details.stock}
+                                </span>
                             </div>
-                            <span class="data-label">Price: ₹${details.price}</span>
-                            <div class="data-label" style="margin-top: 5px;">Vector Clock:</div>
-                            <pre>${JSON.stringify(details.vector_clock || {})}</pre>
+                            <div class="data-label" style="display: flex; justify-content: space-between;">
+                                <span>Price: ₹${details.price}</span>
+                                <span><i class="fa-solid fa-clock-rotate-left"></i> ${JSON.stringify(details.vector_clock || {}).replace(/[{""}]/g, "")}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    // Build Quick Add Buttons corresponding to Inventory
+                    quickAddHtml += `
+                        <div class="quick-add-btn" onclick="addToCart('${item}', 1)">
+                            <i class="fa-solid ${iconClass}"></i>
+                            <span style="font-weight: bold; text-transform: capitalize;">${item}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">+ Add 1</span>
                         </div>
                     `;
                 }
                 document.getElementById('inventory-container').innerHTML = invHtml;
 
+                // Only update the quick-add buttons if they've changed to avoid flash interactions
+                const quickAddGrid = document.getElementById('quick-add-grid');
+                if (quickAddGrid.innerHTML.trim() !== quickAddHtml.trim() && quickAddHtml.length > 0) {
+                    quickAddGrid.innerHTML = quickAddHtml;
+                }
+
                 // Update Cart
                 if (data.cart && data.cart.items && Object.keys(data.cart.items).length > 0) {
                     let cartHtml = '';
                     for (const [item, qty] of Object.entries(data.cart.items)) {
-                        cartHtml += `<div class="data-row"><span class="data-label" style="text-transform: capitalize;">${item}</span><span class="data-value">x${qty}</span></div>`;
+                        const iconClass = getIconClass(item);
+                        cartHtml += `
+                        <div class="data-row" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: none; margin-bottom: 10px; align-items: center;">
+                            <span style="text-transform: capitalize; font-size: 1.1rem;">
+                                <i class="fa-solid ${iconClass} item-icon"></i> ${item}
+                            </span>
+                            <span class="data-value" style="background: var(--primary); padding: 2px 10px; border-radius: 12px; color: white;">x${qty}</span>
+                        </div>`;
                     }
                     document.getElementById('cart-contents').innerHTML = cartHtml;
                     document.getElementById('cart-vc').textContent = JSON.stringify(data.cart.vector_clock || {}, null, 2);
                 } else {
-                    document.getElementById('cart-contents').innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No items in cart</div>';
+                    document.getElementById('cart-contents').innerHTML = '<div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;"><i class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i> No items in cart</div>';
                     document.getElementById('cart-vc').textContent = '{}';
                 }
 
@@ -262,42 +490,42 @@
             }
         }
 
-        async function addToCart() {
+        async function addToCart(itemName, qty) {
             const userId = document.getElementById('add-user-id').value;
-            const item = document.getElementById('add-item-id').value;
-            const qty = parseInt(document.getElementById('add-qty').value);
             const statusEl = document.getElementById('add-status');
 
-            if (!userId || !item || !qty) {
-                statusEl.textContent = "Please fill all fields";
+            if (!userId || !itemName) {
+                statusEl.textContent = "Please provide an Active User ID";
                 statusEl.className = "status-msg error";
                 return;
             }
 
-            statusEl.textContent = "Sending request...";
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Sending write request...`;
             statusEl.className = "status-msg";
 
             try {
                 const res = await fetch('/cart/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, item: item, quantity: qty })
+                    body: JSON.stringify({ user_id: userId, item: itemName, quantity: qty })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (res.ok) {
-                    statusEl.textContent = `Success: Item added!`;
+                    statusEl.innerHTML = `<i class="fa-solid fa-check"></i> Added ${itemName}!`;
                     statusEl.className = "status-msg success";
-                    // Also update viewing cart user id to the one we just added to
-                    document.getElementById('view-user-id').value = userId;
                 } else {
-                    statusEl.textContent = `Error: ${data.status} (Failed Quorum)`;
+                    statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.status} (Failed Quorum)`;
                     statusEl.className = "status-msg error";
                 }
+
+                // Clear success message after 3 seconds
+                setTimeout(() => { if (statusEl.className.includes("success")) statusEl.textContent = ""; }, 3000);
+
                 fetchState();
             } catch (e) {
-                statusEl.textContent = "Network Error";
+                statusEl.innerHTML = `<i class="fa-solid fa-xmark"></i> Network Error`;
                 statusEl.className = "status-msg error";
             }
         }
@@ -305,13 +533,13 @@
         async function checkout() {
             const userId = document.getElementById('view-user-id').value;
             const statusEl = document.getElementById('checkout-status');
-            
+
             if (!userId) {
                 statusEl.textContent = "User ID missing";
                 return;
             }
 
-            statusEl.textContent = "Processing checkout...";
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing distributed checkout...`;
             statusEl.className = "status-msg";
 
             try {
@@ -320,15 +548,18 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: userId })
                 });
-                
+
                 const data = await res.json();
                 if (res.ok) {
-                    statusEl.textContent = "Checkout Successful!";
+                    statusEl.innerHTML = `<i class="fa-solid fa-badge-check"></i> Checkout Successful!`;
                     statusEl.className = "status-msg success";
                 } else {
-                    statusEl.textContent = `Failed: ${data.message}`;
+                    statusEl.innerHTML = `<i class="fa-solid fa-xmark"></i> Failed: ${data.message}`;
                     statusEl.className = "status-msg error";
                 }
+
+                setTimeout(() => { statusEl.textContent = ""; }, 5000);
+
                 fetchState();
             } catch (e) {
                 statusEl.textContent = "Error processing checkout";
@@ -352,20 +583,21 @@
             }
 
             statusEl.textContent = "Updating...";
-            
+
             try {
                 const res = await fetch('/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
+
                 if (res.ok) {
-                    statusEl.textContent = "Configuration Updated!";
+                    statusEl.innerHTML = `<i class="fa-solid fa-check"></i> Quorum Parameters Updated!`;
                     statusEl.className = "status-msg success";
                     document.getElementById('input-r').value = '';
                     document.getElementById('input-w').value = '';
                     fetchState();
+                    setTimeout(() => { statusEl.textContent = ""; }, 3000);
                 }
             } catch (e) {
                 statusEl.textContent = "Update failed";
@@ -378,4 +610,5 @@
         setInterval(fetchState, 3000); // Poll every 3 seconds to keep UI synced without manual refresh
     </script>
 </body>
+
 </html>

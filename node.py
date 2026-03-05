@@ -355,6 +355,35 @@ def checkout():
 def get_inventory():
     return jsonify(node.inventory_db), 200
 
+@app.route('/inventory/manage', methods=['POST'])
+def manage_inventory():
+    """Allows UI to forcefully update or clear inventory stock levels and replicate."""
+    data = request.json
+    updates = data.get('updates', {}) # e.g. {"laptop": 50, "mouse": 200}
+    
+    for item, new_stock in updates.items():
+        if item not in node.inventory_db:
+             node.inventory_db[item] = {"stock": new_stock, "price": 1000, "vector_clock": {}}
+        else:
+             node.inventory_db[item]["stock"] = new_stock
+        
+        vc = VectorClock(node.inventory_db[item].get("vector_clock", {}))
+        vc.increment(node.node_id)
+        node.inventory_db[item]["vector_clock"] = vc.to_dict()
+        
+    node.save_inventory_db()
+    
+    # Replicate explicitly 
+    for peer in node.peers:
+        def replicate_inv(p):
+            try:
+                requests.post(f"http://{p}/replicate/inventory", json={"inventory": node.inventory_db}, timeout=2)
+            except:
+                pass
+        threading.Thread(target=replicate_inv, args=(peer,)).start()
+        
+    return jsonify({"status": "success", "message": "Inventory updated"}), 200
+
 @app.route('/replicate/write_cart', methods=['POST'])
 def replicate_write_cart():
     data = request.json

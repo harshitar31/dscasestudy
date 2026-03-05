@@ -1,0 +1,35 @@
+{
+    "user1": {
+        "items": {
+            "laptop": 1
+        },
+        "vector_clock": {
+            "node1": 1
+        }
+    },
+    "user2": {
+        "items": {
+            "mouse": 2
+        },
+        "vector_clock": {
+            "node1": 2
+        }
+    },
+    "user3": {
+        "items": {
+            "laptop": 1,
+            "mouse": 1
+        },
+        "vector_clock": {
+            "node1": 1,
+            "node2": 1
+        }
+    },
+    "user_check": {
+        "items": {},
+        "vector_clock": {
+            "node1": 1,
+            "node2": 1
+        }
+    }
+}
