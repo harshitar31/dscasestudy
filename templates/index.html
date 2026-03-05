@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Node Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --primary: #3b82f6;
+            --secondary: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .data-label { color: var(--text-muted); font-size: 0.9rem;}
+        .data-value { font-weight: bold; }
+
+        pre {
+            background-color: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            color: #a78bfa;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        /* Forms */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        input {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 6px;
+            outline: none;
+        }
+        
+        input:focus { border-color: var(--primary); }
+
+        button {
+            background: linear-gradient(to right, var(--primary), #2563eb);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        .btn-checkout { background: linear-gradient(to right, var(--success), #059669); }
+        .btn-checkout:hover { opacity: 0.9; }
+
+        .status-msg {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+
+        .success { color: var(--success); }
+        .error { color: var(--danger); }
+        
+        .badge {
+            background-color: var(--primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-left: 5px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 id="node-title">Node Dashboard</h1>
+
+    <div class="dashboard">
+        <!-- Node Info -->
+        <div class="card">
+            <h2>System Status</h2>
+            <div class="data-row"><span class="data-label">Node ID</span><span class="data-value" id="info-id">-</span></div>
+            <div class="data-row"><span class="data-label">Port</span><span class="data-value" id="info-port">-</span></div>
+            <div class="data-row"><span class="data-label">Read Quorum (R)</span><span class="data-value" id="info-r">-</span></div>
+            <div class="data-row"><span class="data-label">Write Quorum (W)</span><span class="data-value" id="info-w">-</span></div>
+            <div class="data-row"><span class="data-label">Total Nodes (N)</span><span class="data-value" id="info-n">-</span></div>
+            
+            <div class="form-group" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
+                <label class="data-label">Update Quorum Configuration</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="input-r" placeholder="R Value" min="1" max="5" style="width: 50%;">
+                    <input type="number" id="input-w" placeholder="W Value" min="1" max="5" style="width: 50%;">
+                </div>
+                <button onclick="updateConfig()">Apply Configuration</button>
+                <div id="config-status" class="status-msg"></div>
+            </div>
+        </div>
+
+        <!-- Inventory -->
+        <div class="card">
+            <h2>Global Inventory</h2>
+            <div id="inventory-container">Loading...</div>
+        </div>
+
+        <!-- Cart View -->
+        <div class="card">
+            <h2>Viewing Cart</h2>
+            <div class="form-group" style="margin-top: 0; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="view-user-id" placeholder="User ID (e.g., user1)" value="user1" style="flex-grow: 1;">
+                    <button onclick="fetchState()" style="padding: 10px 15px;">Refresh</button>
+                </div>
+            </div>
+            
+            <div id="cart-contents">
+                <div style="color: var(--text-muted); font-style: italic;">No items in cart</div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <span class="data-label">Vector Clock:</span>
+                <pre id="cart-vc">{}</pre>
+            </div>
+            
+            <button class="btn-checkout" style="width: 100%; margin-top: 20px;" onclick="checkout()">Checkout Cart</button>
+            <div id="checkout-status" class="status-msg"></div>
+        </div>
+
+        <!-- Cart Operations -->
+        <div class="card">
+            <h2>Add to Cart (Write)</h2>
+            <div class="form-group">
+                <input type="text" id="add-user-id" placeholder="User ID" value="user1">
+                <input type="text" id="add-item-id" placeholder="Item ID (e.g., laptop)">
+                <input type="number" id="add-qty" placeholder="Quantity" value="1" min="1">
+                <button onclick="addToCart()">Add Item</button>
+                <div id="add-status" class="status-msg"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentNodeId = "";
+        
+        async function fetchState() {
+            try {
+                const userId = document.getElementById('view-user-id').value || "user1";
+                const response = await fetch(`/state?user_id=${userId}`);
+                const data = await response.json();
+                
+                // Update Node Info
+                document.getElementById('node-title').textContent = `${data.node_id.toUpperCase()} Dashboard`;
+                document.getElementById('info-id').textContent = data.node_id;
+                document.getElementById('info-port').textContent = data.port;
+                document.getElementById('info-r').textContent = data.r;
+                document.getElementById('info-w').textContent = data.w;
+                document.getElementById('info-n').textContent = data.n;
+                
+                currentNodeId = data.node_id;
+
+                // Update Inventory
+                let invHtml = '';
+                for (const [item, details] of Object.entries(data.inventory)) {
+                    invHtml += `
+                        <div style="margin-bottom: 15px;">
+                            <div class="data-row">
+                                <span style="font-size: 1.1rem; text-transform: capitalize; color: var(--primary)">${item}</span>
+                                <span class="data-value" style="color: ${details.stock > 0 ? 'inherit' : 'var(--danger)'}">Stock: ${details.stock}</span>
+                            </div>
+                            <span class="data-label">Price: ₹${details.price}</span>
+                            <div class="data-label" style="margin-top: 5px;">Vector Clock:</div>
+                            <pre>${JSON.stringify(details.vector_clock || {})}</pre>
+                        </div>
+                    `;
+                }
+                document.getElementById('inventory-container').innerHTML = invHtml;
+
+                // Update Cart
+                if (data.cart && data.cart.items && Object.keys(data.cart.items).length > 0) {
+                    let cartHtml = '';
+                    for (const [item, qty] of Object.entries(data.cart.items)) {
+                        cartHtml += `<div class="data-row"><span class="data-label" style="text-transform: capitalize;">${item}</span><span class="data-value">x${qty}</span></div>`;
+                    }
+                    document.getElementById('cart-contents').innerHTML = cartHtml;
+                    document.getElementById('cart-vc').textContent = JSON.stringify(data.cart.vector_clock || {}, null, 2);
+                } else {
+                    document.getElementById('cart-contents').innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No items in cart</div>';
+                    document.getElementById('cart-vc').textContent = '{}';
+                }
+
+            } catch (error) {
+                console.error("Error fetching state:", error);
+            }
+        }
+
+        async function addToCart() {
+            const userId = document.getElementById('add-user-id').value;
+            const item = document.getElementById('add-item-id').value;
+            const qty = parseInt(document.getElementById('add-qty').value);
+            const statusEl = document.getElementById('add-status');
+
+            if (!userId || !item || !qty) {
+                statusEl.textContent = "Please fill all fields";
+                statusEl.className = "status-msg error";
+                return;
+            }
+
+            statusEl.textContent = "Sending request...";
+            statusEl.className = "status-msg";
+
+            try {
+                const res = await fetch('/cart/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, item: item, quantity: qty })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    statusEl.textContent = `Success: Item added!`;
+                    statusEl.className = "status-msg success";
+                    // Also update viewing cart user id to the one we just added to
+                    document.getElementById('view-user-id').value = userId;
+                } else {
+                    statusEl.textContent = `Error: ${data.status} (Failed Quorum)`;
+                    statusEl.className = "status-msg error";
+                }
+                fetchState();
+            } catch (e) {
+                statusEl.textContent = "Network Error";
+                statusEl.className = "status-msg error";
+            }
+        }
+
+        async function checkout() {
+            const userId = document.getElementById('view-user-id').value;
+            const statusEl = document.getElementById('checkout-status');
+            
+            if (!userId) {
+                statusEl.textContent = "User ID missing";
+                return;
+            }
+
+            statusEl.textContent = "Processing checkout...";
+            statusEl.className = "status-msg";
+
+            try {
+                const res = await fetch('/cart/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    statusEl.textContent = "Checkout Successful!";
+                    statusEl.className = "status-msg success";
+                } else {
+                    statusEl.textContent = `Failed: ${data.message}`;
+                    statusEl.className = "status-msg error";
+                }
+                fetchState();
+            } catch (e) {
+                statusEl.textContent = "Error processing checkout";
+                statusEl.className = "status-msg error";
+            }
+        }
+
+        async function updateConfig() {
+            const r = parseInt(document.getElementById('input-r').value);
+            const w = parseInt(document.getElementById('input-w').value);
+            const statusEl = document.getElementById('config-status');
+
+            let payload = {};
+            if (!isNaN(r)) payload.r = r;
+            if (!isNaN(w)) payload.w = w;
+
+            if (Object.keys(payload).length === 0) {
+                statusEl.textContent = "Provide R or W";
+                statusEl.className = "status-msg error";
+                return;
+            }
+
+            statusEl.textContent = "Updating...";
+            
+            try {
+                const res = await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    statusEl.textContent = "Configuration Updated!";
+                    statusEl.className = "status-msg success";
+                    document.getElementById('input-r').value = '';
+                    document.getElementById('input-w').value = '';
+                    fetchState();
+                }
+            } catch (e) {
+                statusEl.textContent = "Update failed";
+                statusEl.className = "status-msg error";
+            }
+        }
+
+        // Initial Load and Polling
+        fetchState();
+        setInterval(fetchState, 3000); // Poll every 3 seconds to keep UI synced without manual refresh
+    </script>
+</body>
+</html>
