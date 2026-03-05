@@ -9,16 +9,26 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --surface-color: #1e293b;
-            --primary: #3b82f6;
-            --secondary: #8b5cf6;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #334155;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
+            --bg-color: #fef9c3;
+            /* light mustard background */
+            --surface-color: #fde047;
+            /* darker mustard cards */
+            --primary: #854d0e;
+            /* dark brownish yellow for primary accents */
+            --secondary: #a16207;
+            /* medium brownish yellow */
+            --text-main: #1c1917;
+            /* dark text */
+            --text-muted: #57534e;
+            /* semi dark text */
+            --border: #facc15;
+            /* intense yellow borders */
+            --success: #15803d;
+            /* dark green for success on light bg */
+            --danger: #b91c1c;
+            /* dark red for error */
+            --warning: #d97706;
+            /* orange */
         }
 
         body {
@@ -33,11 +43,10 @@
         }
 
         h1 {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--primary);
             margin-bottom: 30px;
             text-align: center;
+            font-weight: 800;
         }
 
         .dashboard {
@@ -50,23 +59,23 @@
 
         .card {
             background-color: var(--surface-color);
-            border: 1px solid var(--border);
+            border: 2px solid var(--border);
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 2px dashed var(--border);
             padding-bottom: 10px;
             margin-bottom: 15px;
         }
@@ -90,21 +99,24 @@
 
         .data-label {
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-weight: 600;
         }
 
         .data-value {
             font-weight: bold;
+            color: var(--text-main);
         }
 
         pre {
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: rgba(255, 255, 255, 0.6);
             padding: 10px;
             border-radius: 6px;
             overflow-x: auto;
-            color: #a78bfa;
+            color: var(--primary);
             font-size: 0.85rem;
             margin-top: 5px;
+            border: 1px solid var(--border);
         }
 
         /* Forms */
@@ -115,12 +127,13 @@
         }
 
         input {
-            background-color: var(--bg-color);
-            border: 1px solid var(--border);
+            background-color: white;
+            border: 2px solid var(--border);
             color: var(--text-main);
             padding: 10px;
             border-radius: 6px;
             outline: none;
+            font-weight: bold;
         }
 
         input:focus {
@@ -128,14 +141,14 @@
         }
 
         button {
-            background: linear-gradient(to right, var(--primary), #2563eb);
+            background: var(--primary);
             color: white;
             border: none;
             padding: 10px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: opacity 0.2s;
+            transition: background-color 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -143,44 +156,45 @@
         }
 
         button:hover {
-            opacity: 0.9;
+            background: var(--secondary);
         }
 
         .btn-checkout {
-            background: linear-gradient(to right, var(--success), #059669);
+            background: var(--success);
         }
 
         .btn-checkout:hover {
-            opacity: 0.9;
+            background: #166534;
         }
 
         .btn-icon {
-            background: var(--surface-color);
-            border: 1px solid var(--border);
-            color: var(--text-main);
+            background: white;
+            border: 2px solid var(--border);
+            color: var(--primary);
         }
 
         .btn-icon:hover {
-            background: var(--border);
+            background: var(--bg-color);
         }
 
         .btn-danger {
-            background: linear-gradient(to right, var(--danger), #b91c1c);
+            background: var(--danger);
         }
 
         .btn-primary-outline {
-            background: transparent;
-            border: 1px solid var(--primary);
+            background: white;
+            border: 2px solid var(--primary);
             color: var(--primary);
         }
 
         .btn-primary-outline:hover {
-            background: rgba(59, 130, 246, 0.1);
+            background: var(--bg-color);
         }
 
         .status-msg {
             margin-top: 10px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-weight: bold;
             min-height: 20px;
             text-align: center;
         }
@@ -218,16 +232,17 @@
             align-items: center;
             gap: 8px;
             padding: 15px 10px;
-            background: var(--bg-color);
-            border: 1px solid var(--border);
+            background: white;
+            border: 2px solid var(--border);
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
+            color: var(--text-main);
         }
 
         .quick-add-btn:hover {
             border-color: var(--primary);
-            background: rgba(59, 130, 246, 0.1);
+            background: var(--bg-color);
             transform: scale(1.02);
         }
 
@@ -240,7 +255,7 @@
             font-size: 1.2rem;
             margin-right: 8px;
             vertical-align: middle;
-            color: var(--secondary);
+            color: var(--primary);
         }
     </style>
 </head>
@@ -272,7 +287,7 @@
                                 id="info-n">-</span></div>
                     </div>
 
-                    <div class="form-group" style="border-left: 1px solid var(--border); padding-left: 20px;">
+                    <div class="form-group" style="border-left: 2px dashed var(--border); padding-left: 20px;">
                         <label class="data-label">Update Quorum Configuration</label>
                         <div style="display: flex; gap: 10px;">
                             <input type="number" id="input-r" placeholder="R Value" min="1" max="5" style="width: 50%;">
@@ -289,8 +304,6 @@
         <div class="card">
             <div class="card-header">
                 <h2><i class="fa-solid fa-boxes-stacked"></i> Global Inventory</h2>
-                <button class="btn-icon" title="Reset Inventory to Defaults" onclick="resetInventory()"><i
-                        class="fa-solid fa-rotate-left"></i></button>
             </div>
             <div id="inventory-container">Loading...</div>
             <div id="inv-status" class="status-msg"></div>

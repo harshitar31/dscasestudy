@@ -53,7 +53,11 @@ class Node:
             # Seed inventory if it doesn't exist
             self.inventory_db = {
                 "laptop": {"stock": 25, "price": 80000, "vector_clock": {}},
-                "mouse": {"stock": 100, "price": 500, "vector_clock": {}}
+                "mouse": {"stock": 100, "price": 500, "vector_clock": {}},
+                "keyboard": {"stock": 50, "price": 1500, "vector_clock": {}},
+                "monitor": {"stock": 30, "price": 12000, "vector_clock": {}},
+                "phone": {"stock": 40, "price": 50000, "vector_clock": {}},
+                "tablet": {"stock": 20, "price": 30000, "vector_clock": {}}
             }
             self.save_inventory_db()
 
@@ -293,8 +297,12 @@ class Node:
             vc_local = VectorClock(self.inventory_db[item].get("vector_clock", {}))
             vc_remote = VectorClock(remote_data.get("vector_clock", {}))
             
-            if vc_local.compare(vc_remote) == -1: # local is stale
+            cmp = vc_local.compare(vc_remote)
+            if cmp == -1: # local is stale
                 self.inventory_db[item] = remote_data
+            elif cmp == None: # Conflict, we take the one with the higher stock for safety or merge VCs
+                self.inventory_db[item]["stock"] = max(self.inventory_db[item]["stock"], remote_data["stock"])
+                self.inventory_db[item]["vector_clock"] = vc_local.merge(vc_remote).to_dict()
         
         self.save_inventory_db()
         return True
