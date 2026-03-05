@@ -26,6 +26,9 @@ class Node:
         
         self.setup_logging()
         self.load_databases()
+        
+        # Start background sync with peers
+        threading.Thread(target=self.sync_inventory_with_peers, daemon=True).start()
 
     def setup_logging(self):
         logging.basicConfig(
@@ -50,15 +53,25 @@ class Node:
             with open(self.inventory_db_path, 'r') as f:
                 self.inventory_db = json.load(f)
         else:
-            # Seed inventory if it doesn't exist
-            self.inventory_db = {
-                "laptop": {"stock": 25, "price": 80000, "vector_clock": {}},
-                "mouse": {"stock": 100, "price": 500, "vector_clock": {}},
-                "keyboard": {"stock": 50, "price": 1500, "vector_clock": {}},
-                "monitor": {"stock": 30, "price": 12000, "vector_clock": {}},
-                "phone": {"stock": 40, "price": 50000, "vector_clock": {}},
-                "tablet": {"stock": 20, "price": 30000, "vector_clock": {}}
-            }
+            self.inventory_db = {}
+
+        # DEFAULT CATALOG: Always ensure these items exist
+        defaults = {
+            "laptop": {"stock": 25, "price": 80000, "vector_clock": {}},
+            "mouse": {"stock": 100, "price": 500, "vector_clock": {}},
+            "keyboard": {"stock": 50, "price": 1500, "vector_clock": {}},
+            "monitor": {"stock": 30, "price": 12000, "vector_clock": {}},
+            "phone": {"stock": 40, "price": 50000, "vector_clock": {}},
+            "tablet": {"stock": 20, "price": 30000, "vector_clock": {}}
+        }
+        
+        updated = False
+        for item, data in defaults.items():
+            if item not in self.inventory_db:
+                self.inventory_db[item] = data
+                updated = True
+        
+        if updated or not os.path.exists(self.inventory_db_path):
             self.save_inventory_db()
 
     def save_cart_db(self):
@@ -249,13 +262,62 @@ class Node:
         
         items_to_buy = cart["items"]
         
-        # 2. Validate inventory (Simplified: check local inventory)
-        # In a real system, inventory would also be quorum-read
+        # 2. Validate inventory (Quorum Read for inventory)
+        # Fetch current inventory from R replicas to ensure consistency
+        self.logger.info("Performing Quorum Read for Inventory validation")
+        quorum_inventory = {} # item -> list of versions
+        
+        def fetch_inv_from_peer(peer, results):
+            try:
+                url = f"http://{peer}/inventory"
+                response = requests.get(url, timeout=2)
+                if response.status_code == 200:
+                    results.append(response.json())
+            except:
+                pass
+
+        peer_inv_results = []
+        threads = []
+        for peer in self.peers:
+            t = threading.Thread(target=fetch_inv_from_peer, args=(peer, peer_inv_results))
+            threads.append(t)
+            t.start()
+        
+        # Wait for R-1 peers (coordinator is the R-th)
+        start_time = time.time()
+        while len(peer_inv_results) < self.r - 1 and (time.time() - start_time) < 3:
+            time.sleep(0.1)
+            
+        all_inv_versions = [self.inventory_db] + peer_inv_results
+        
+        # Merge all received inventory versions using Vector Clocks to find "Truth"
+        latest_inventory = all_inv_versions[0]
+        for i in range(1, len(all_inv_versions)):
+            remote_inv = all_inv_versions[i]
+            for item in remote_inv:
+                if item not in latest_inventory:
+                    latest_inventory[item] = remote_inv[item]
+                    continue
+                
+                vc_local = VectorClock(latest_inventory[item].get("vector_clock", {}))
+                vc_remote = VectorClock(remote_inv[item].get("vector_clock", {}))
+                cmp = vc_local.compare(vc_remote)
+                
+                if cmp == -1: # remote is newer
+                    latest_inventory[item] = remote_inv[item]
+                elif cmp == None: # Conflict
+                    latest_inventory[item]["stock"] = max(latest_inventory[item]["stock"], remote_inv[item]["stock"])
+                    latest_inventory[item]["vector_clock"] = vc_local.merge(vc_remote).to_dict()
+        
+        # Now validate against the "Latest/Agreed" inventory
         for item, qty in items_to_buy.items():
-            current_stock = self.inventory_db.get(item, {}).get("stock", 0)
+            current_stock = latest_inventory.get(item, {}).get("stock", 0)
             if current_stock < qty:
                 return False, f"Insufficient stock for {item}"
         
+        # Update our local copy if it was stale
+        self.inventory_db = latest_inventory
+
         # 3. Update inventory locally and replicate
         for item, qty in items_to_buy.items():
             self.inventory_db[item]["stock"] -= qty
@@ -306,6 +368,23 @@ class Node:
         
         self.save_inventory_db()
         return True
+
+    def sync_inventory_with_peers(self):
+        """On startup, fetch inventory from peers to catch up on missed checkouts/updates."""
+        self.logger.info("Initializing startup peer-sync for inventory...")
+        # Give a small delay for other nodes to potentially start up if launched in batch
+        time.sleep(2)
+        
+        for peer in self.peers:
+            try:
+                self.logger.info(f"Syncing with peer {peer}")
+                url = f"http://{peer}/inventory"
+                response = requests.get(url, timeout=3)
+                if response.status_code == 200:
+                    self.receive_replicate_inventory(response.json())
+                    self.logger.info(f"Successfully synced with {peer}")
+            except Exception as e:
+                self.logger.debug(f"Could not sync with {peer} during startup: {e}")
 
 node = None
 
