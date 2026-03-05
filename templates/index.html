@@ -8,31 +8,33 @@
     <!-- Use FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         :root {
-            --bg-color: #fef9c3;
-            /* light mustard background */
-            --surface-color: #fde047;
-            /* darker mustard cards */
-            --primary: #854d0e;
-            /* dark brownish yellow for primary accents */
+            --bg-color: #f8fafc;
+            /* clean white/gray background */
+            --surface-color: #ffffff;
+            /* white cards */
+            --primary: #ca8a04;
+            /* mustard yellow accent */
             --secondary: #a16207;
-            /* medium brownish yellow */
-            --text-main: #1c1917;
-            /* dark text */
-            --text-muted: #57534e;
-            /* semi dark text */
-            --border: #facc15;
-            /* intense yellow borders */
+            /* darker yellow for hover */
+            --text-main: #1e293b;
+            /* dark slate text */
+            --text-muted: #64748b;
+            /* slate muted text */
+            --border: #eab308;
+            /* mustard yellow border */
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --success: #15803d;
-            /* dark green for success on light bg */
             --danger: #b91c1c;
-            /* dark red for error */
             --warning: #d97706;
-            /* orange */
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
@@ -47,112 +49,123 @@
             margin-bottom: 30px;
             text-align: center;
             font-weight: 800;
+            letter-spacing: -0.025em;
         }
 
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            gap: 24px;
             width: 100%;
             max-width: 1200px;
         }
 
         .card {
             background-color: var(--surface-color);
-            border: 2px solid var(--border);
+            border: 1px solid #e2e8f0;
+            border-top: 4px solid var(--border);
+            /* Mustard yellow accent at the top */
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            box-shadow: var(--card-shadow);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px dashed var(--border);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
         }
 
         h2 {
             margin: 0;
-            color: var(--primary);
-            font-size: 1.2rem;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
+        h2 i {
+            color: var(--primary);
+        }
+
         .data-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px dashed var(--border);
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f1f5f9;
         }
 
         .data-label {
             color: var(--text-muted);
-            font-size: 0.95rem;
-            font-weight: 600;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
         .data-value {
-            font-weight: bold;
+            font-weight: 600;
             color: var(--text-main);
         }
 
         pre {
-            background-color: rgba(255, 255, 255, 0.6);
-            padding: 10px;
-            border-radius: 6px;
+            background-color: #f8fafc;
+            padding: 12px;
+            border-radius: 8px;
             overflow-x: auto;
-            color: var(--primary);
-            font-size: 0.85rem;
-            margin-top: 5px;
-            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 8px;
+            border: 1px solid #e2e8f0;
         }
 
         /* Forms */
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
         }
 
         input {
-            background-color: white;
-            border: 2px solid var(--border);
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
             color: var(--text-main);
-            padding: 10px;
-            border-radius: 6px;
+            padding: 10px 14px;
+            border-radius: 8px;
             outline: none;
-            font-weight: bold;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
         }
 
         input:focus {
             border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.1);
         }
 
         button {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 10px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 600;
             transition: background-color 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            font-size: 0.95rem;
         }
 
         button:hover {
@@ -169,12 +182,14 @@
 
         .btn-icon {
             background: white;
-            border: 2px solid var(--border);
-            color: var(--primary);
+            border: 1px solid #e2e8f0;
+            color: var(--text-muted);
         }
 
         .btn-icon:hover {
-            background: var(--bg-color);
+            background: #f8fafc;
+            color: var(--primary);
+            border-color: var(--primary);
         }
 
         .btn-danger {
@@ -183,18 +198,18 @@
 
         .btn-primary-outline {
             background: white;
-            border: 2px solid var(--primary);
+            border: 1px solid var(--primary);
             color: var(--primary);
         }
 
         .btn-primary-outline:hover {
-            background: var(--bg-color);
+            background: rgba(234, 179, 8, 0.05);
         }
 
         .status-msg {
-            margin-top: 10px;
-            font-size: 0.95rem;
-            font-weight: bold;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
             min-height: 20px;
             text-align: center;
         }
@@ -211,18 +226,19 @@
         .collapsible-content {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.3s ease-out;
+            transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
         }
 
         .collapsible-content.expanded {
-            max-height: 500px;
+            max-height: 1000px;
+            transition: max-height 0.3s ease-in;
         }
 
         /* Direct Add Buttons */
         .quick-add-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
             margin-bottom: 20px;
         }
 
@@ -231,10 +247,10 @@
             flex-direction: column;
             align-items: center;
             gap: 8px;
-            padding: 15px 10px;
+            padding: 16px 12px;
             background: white;
-            border: 2px solid var(--border);
-            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
             color: var(--text-main);
@@ -242,58 +258,85 @@
 
         .quick-add-btn:hover {
             border-color: var(--primary);
-            background: var(--bg-color);
-            transform: scale(1.02);
+            background: rgba(234, 179, 8, 0.05);
+            transform: translateY(-2px);
         }
 
         .quick-add-btn i {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             color: var(--primary);
         }
 
         .item-icon {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             margin-right: 8px;
             vertical-align: middle;
             color: var(--primary);
+        }
+
+        .badge-stock {
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .stock-ok {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .stock-low {
+            background: #fee2e2;
+            color: #991b1b;
         }
     </style>
 </head>
 
 <body>
 
-    <h1 id="node-title"><i class="fa-solid fa-server"></i> Node Dashboard</h1>
+    <h1 id="node-title"><i class="fa-solid fa-layer-group"></i> Node Dashboard</h1>
 
     <div class="dashboard">
         <!-- System Status (Collapsible) -->
         <div class="card" style="grid-column: 1 / -1;">
             <div class="card-header" style="cursor: pointer;" onclick="toggleSystemStatus()">
-                <h2><i class="fa-solid fa-gear"></i> System Details & Config</h2>
-                <i class="fa-solid fa-chevron-down" id="status-toggle-icon"></i>
+                <h2><i class="fa-solid fa-sliders"></i> Node Configuration</h2>
+                <i class="fa-solid fa-chevron-down" id="status-toggle-icon" style="color: var(--text-muted)"></i>
             </div>
 
             <div id="system-status-content" class="collapsible-content">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 32px; padding-top: 10px;">
                     <div>
-                        <div class="data-row"><span class="data-label">Node ID</span><span class="data-value"
+                        <div class="data-row"><span class="data-label">Node Identifier</span><span class="data-value"
                                 id="info-id">-</span></div>
-                        <div class="data-row"><span class="data-label">Port</span><span class="data-value"
+                        <div class="data-row"><span class="data-label">Network Port</span><span class="data-value"
                                 id="info-port">-</span></div>
-                        <div class="data-row"><span class="data-label">Read Quorum (R)</span><span class="data-value"
+                        <div class="data-row"><span class="data-label">Quorum Replicas (N)</span><span
+                                class="data-value" id="info-n">-</span></div>
+                        <div class="data-row"><span class="data-label">Read Config (R)</span><span class="data-value"
                                 id="info-r">-</span></div>
-                        <div class="data-row"><span class="data-label">Write Quorum (W)</span><span class="data-value"
+                        <div class="data-row"><span class="data-label">Write Config (W)</span><span class="data-value"
                                 id="info-w">-</span></div>
-                        <div class="data-row"><span class="data-label">Total Nodes (N)</span><span class="data-value"
-                                id="info-n">-</span></div>
                     </div>
 
-                    <div class="form-group" style="border-left: 2px dashed var(--border); padding-left: 20px;">
-                        <label class="data-label">Update Quorum Configuration</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="number" id="input-r" placeholder="R Value" min="1" max="5" style="width: 50%;">
-                            <input type="number" id="input-w" placeholder="W Value" min="1" max="5" style="width: 50%;">
+                    <div class="form-group" style="padding-left: 0;">
+                        <label class="data-label" style="margin-bottom: 4px;">Adjust Consistency Strategy</label>
+                        <div style="display: flex; gap: 16px;">
+                            <div style="flex: 1;">
+                                <label for="input-r" class="data-label"
+                                    style="font-size: 0.75rem; display: block; margin-bottom: 4px;">Read (R)</label>
+                                <input type="number" id="input-r" placeholder="R" min="1" max="5" style="width: 100%;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="input-w" class="data-label"
+                                    style="font-size: 0.75rem; display: block; margin-bottom: 4px;">Write (W)</label>
+                                <input type="number" id="input-w" placeholder="W" min="1" max="5" style="width: 100%;">
+                            </div>
                         </div>
-                        <button onclick="updateConfig()"><i class="fa-solid fa-check"></i> Apply Configuration</button>
+                        <button onclick="updateConfig()" style="margin-top: 8px;"><i class="fa-solid fa-save"></i> Save
+                            Rules</button>
                         <div id="config-status" class="status-msg"></div>
                     </div>
                 </div>
@@ -303,24 +346,28 @@
         <!-- Inventory -->
         <div class="card">
             <div class="card-header">
-                <h2><i class="fa-solid fa-boxes-stacked"></i> Global Inventory</h2>
+                <h2><i class="fa-solid fa-warehouse"></i> Global Catalog</h2>
             </div>
-            <div id="inventory-container">Loading...</div>
+            <div id="inventory-container">
+                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Initializing catalog...
+                </div>
+            </div>
             <div id="inv-status" class="status-msg"></div>
         </div>
 
         <!-- Cart Operations (Direct Add) -->
         <div class="card">
             <div class="card-header">
-                <h2><i class="fa-solid fa-cart-arrow-down"></i> Add to Cart</h2>
+                <h2><i class="fa-solid fa-cart-plus"></i> Add to Cart</h2>
             </div>
             <div class="form-group">
-                <label class="data-label">Active User ID:</label>
-                <input type="text" id="add-user-id" placeholder="User ID" value="user1"
+                <label class="data-label">Active User ID</label>
+                <input type="text" id="add-user-id" placeholder="Enter ID..." value="user1"
                     oninput="document.getElementById('view-user-id').value = this.value">
 
-                <h3 style="font-size: 1rem; color: var(--text-muted); margin-top: 15px; margin-bottom: 5px;">Quick Add
-                    Items:</h3>
+                <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-top: 15px; margin-bottom: 8px;">Select
+                    Item:</h3>
 
                 <div class="quick-add-grid" id="quick-add-grid">
                     <!-- Dynamic buttons injected here -->
@@ -333,31 +380,38 @@
         <!-- Cart View -->
         <div class="card">
             <div class="card-header">
-                <h2><i class="fa-solid fa-shopping-cart"></i> Cart Manager</h2>
+                <h2><i class="fa-solid fa-shopping-basket"></i> Cart Manager</h2>
             </div>
 
-            <div class="form-group" style="margin-top: 0; margin-bottom: 20px;">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="view-user-id" placeholder="User ID" value="user1" style="flex-grow: 1;"
-                        oninput="document.getElementById('add-user-id').value = this.value">
-                    <button class="btn-primary-outline" onclick="fetchState()"><i
-                            class="fa-solid fa-arrows-rotate"></i></button>
+            <div class="form-group" style="margin-top: 0; margin-bottom: 24px;">
+                <div style="display: flex; gap: 12px; align-items: flex-end;">
+                    <div style="flex-grow: 1;">
+                        <span class="data-label" style="font-size: 0.75rem;">Viewing User</span>
+                        <input type="text" id="view-user-id" placeholder="User ID" value="user1"
+                            style="width: 100%; margin-top: 4px;"
+                            oninput="document.getElementById('add-user-id').value = this.value">
+                    </div>
+                    <button class="btn-icon" style="height: 42px; width: 42px;" onclick="fetchState()">
+                        <i class="fa-solid fa-sync"></i>
+                    </button>
                 </div>
             </div>
 
             <div id="cart-contents">
-                <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;"><i
-                        class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                    No items in cart</div>
+                <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;">
+                    <i class="fa-solid fa-box-open"
+                        style="font-size: 2rem; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                    Cart is currently empty
+                </div>
             </div>
 
-            <div style="margin-top: 15px;">
-                <span class="data-label">Vector Clock:</span>
+            <div style="margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 15px;">
+                <span class="data-label" style="font-size: 0.8rem;">Vector Clock State:</span>
                 <pre id="cart-vc">{}</pre>
             </div>
 
-            <button class="btn-checkout" style="width: 100%; margin-top: 20px; padding: 12px; font-size: 1.1rem;"
-                onclick="checkout()"><i class="fa-solid fa-money-check-dollar"></i> Request Checkout</button>
+            <button class="btn-checkout" style="width: 100%; margin-top: 24px;" onclick="checkout()"><i
+                    class="fa-solid fa-credit-card"></i> Proceed to Checkout</button>
             <div id="checkout-status" class="status-msg"></div>
         </div>
 
@@ -426,12 +480,22 @@
                 const data = await response.json();
 
                 // Update Node Info
-                document.getElementById('node-title').innerHTML = `<i class="fa-solid fa-server"></i> Node ${data.node_id.toUpperCase()}`;
-                document.getElementById('info-id').textContent = data.node_id;
-                document.getElementById('info-port').textContent = data.port;
-                document.getElementById('info-r').textContent = data.r;
-                document.getElementById('info-w').textContent = data.w;
-                document.getElementById('info-n').textContent = data.n;
+                const titleEl = document.getElementById('node-title');
+                if (titleEl) {
+                    titleEl.innerHTML = `<i class="fa-solid fa-layer-group"></i> Node ${data.node_id.toUpperCase()}`;
+                }
+
+                // Safely update all info fields
+                const updateField = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = val;
+                };
+
+                updateField('info-id', data.node_id);
+                updateField('info-port', data.port);
+                updateField('info-r', data.r);
+                updateField('info-w', data.w);
+                updateField('info-n', data.n);
 
                 currentNodeId = data.node_id;
 
@@ -441,22 +505,26 @@
 
                 for (const [item, details] of Object.entries(data.inventory)) {
                     const iconClass = getIconClass(item);
+                    const isLowStock = details.stock <= 5;
+                    const price = details.price ? details.price.toLocaleString() : "N/A";
 
                     // Build Inventory List 
                     invHtml += `
-                        <div style="margin-bottom: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px;">
-                            <div class="data-row" style="border-bottom: none;">
-                                <span style="font-size: 1.1rem; text-transform: capitalize; color: var(--primary)">
-                                    <i class="fa-solid ${iconClass} item-icon"></i>${item}
+                        <div style="margin-bottom: 16px; border: 1px solid #f1f5f9; padding: 16px; border-radius: 12px;">
+                            <div class="data-row" style="border-bottom: none; margin-bottom: 4px;">
+                                <span style="font-size: 1rem; text-transform: capitalize; font-weight: 700;">
+                                    <i class="fa-solid ${iconClass}" style="color: var(--primary); margin-right: 8px;"></i>${item}
                                 </span>
-                                <span class="data-value" style="color: ${details.stock > 0 ? 'var(--success)' : 'var(--danger)'}; display: flex; align-items: center; gap: 5px;">
-                                    ${details.stock > 0 ? '<i class="fa-solid fa-check-circle"></i>' : '<i class="fa-solid fa-xmark-circle"></i>'} 
-                                    Stock: ${details.stock}
+                                <span class="badge-stock ${isLowStock ? 'stock-low' : 'stock-ok'}">
+                                    ${details.stock} in stock
                                 </span>
                             </div>
-                            <div class="data-label" style="display: flex; justify-content: space-between;">
-                                <span>Price: ₹${details.price}</span>
-                                <span><i class="fa-solid fa-clock-rotate-left"></i> ${JSON.stringify(details.vector_clock || {}).replace(/[{""}]/g, "")}</span>
+                            <div class="data-label" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                                <span>Price: ₹${price}</span>
+                                <span style="color: var(--text-muted)">
+                                    <i class="fa-solid fa-code-merge" style="font-size: 0.7rem;"></i> 
+                                    ${JSON.stringify(details.vector_clock || {}).replace(/[{}"]/g, "")}
+                                </span>
                             </div>
                         </div>
                     `;
@@ -484,17 +552,21 @@
                     for (const [item, qty] of Object.entries(data.cart.items)) {
                         const iconClass = getIconClass(item);
                         cartHtml += `
-                        <div class="data-row" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: none; margin-bottom: 10px; align-items: center;">
-                            <span style="text-transform: capitalize; font-size: 1.1rem;">
-                                <i class="fa-solid ${iconClass} item-icon"></i> ${item}
+                        <div class="data-row" style="padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 10px; align-items: center;">
+                            <span style="text-transform: capitalize; font-weight: 500;">
+                                <i class="fa-solid ${iconClass}" style="color: var(--primary); margin-right: 12px; font-size: 1.1rem;"></i> ${item}
                             </span>
-                            <span class="data-value" style="background: var(--primary); padding: 2px 10px; border-radius: 12px; color: white;">x${qty}</span>
+                            <span class="data-value" style="background: var(--primary); padding: 2px 10px; border-radius: 12px; color: white; font-size: 0.8rem;">Qty: ${qty}</span>
                         </div>`;
                     }
                     document.getElementById('cart-contents').innerHTML = cartHtml;
                     document.getElementById('cart-vc').textContent = JSON.stringify(data.cart.vector_clock || {}, null, 2);
                 } else {
-                    document.getElementById('cart-contents').innerHTML = '<div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;"><i class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i> No items in cart</div>';
+                    document.getElementById('cart-contents').innerHTML = `
+                        <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 20px 0;">
+                            <i class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                            Cart is currently empty
+                        </div>`;
                     document.getElementById('cart-vc').textContent = '{}';
                 }
 
