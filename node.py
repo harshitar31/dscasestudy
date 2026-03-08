@@ -498,6 +498,19 @@ def update_config():
     if 'r' in data: node.r = data['r']
     if 'w' in data: node.w = data['w']
     node.logger.info(f"Updated Quorum Configuration: R={node.r}, W={node.w}")
+    
+    # Propagate to all other peers if 'propagate' is not explicitly False
+    if data.get('propagate', True):
+        for peer in node.peers:
+            def replicate_config(p):
+                try:
+                    url = f"http://{p}/config"
+                    # Set propagate=False to prevent infinite loops
+                    requests.post(url, json={"r": node.r, "w": node.w, "propagate": False}, timeout=2)
+                except Exception as e:
+                    node.logger.error(f"Failed to propagate config to {p}: {e}")
+            threading.Thread(target=replicate_config, args=(peer,)).start()
+            
     return jsonify({"status": "ok", "r": node.r, "w": node.w}), 200
 
 if __name__ == '__main__':
