@@ -18,6 +18,7 @@ class Node:
         self.n = n
         self.r = r
         self.w = w
+        self.delay = 0 # Simulated network delay
         
         self.db_dir = f"db_{node_id}"
         os.makedirs(self.db_dir, exist_ok=True)
@@ -128,8 +129,11 @@ class Node:
         
         def replicate_to_peer(peer, results):
             try:
+                if self.delay > 0:
+                    time.sleep(self.delay)
                 url = f"http://{peer}/replicate/write_cart"
-                response = requests.post(url, json={"user_id": user_id, "cart": cart}, timeout=2)
+                # Increase timeout to account for intentional delay if it's large
+                response = requests.post(url, json={"user_id": user_id, "cart": cart}, timeout=max(2.0, self.delay + 2.0))
                 if response.status_code == 200:
                     results.append(True)
             except Exception as e:
@@ -494,6 +498,7 @@ def get_state():
         "n": node.n,
         "r": node.r,
         "w": node.w,
+        "delay": node.delay,
         "cart": node.cart_db.get(user_id, {"items": {}, "vector_clock": {}}),
         "inventory": node.inventory_db
     }), 200
@@ -639,7 +644,8 @@ def update_config():
     data = request.json
     if 'r' in data: node.r = data['r']
     if 'w' in data: node.w = data['w']
-    node.logger.info(f"Updated Quorum Configuration: R={node.r}, W={node.w}")
+    if 'delay' in data: node.delay = data['delay']
+    node.logger.info(f"Updated Quorum Configuration: R={node.r}, W={node.w}, Delay={node.delay}")
     
     # Propagate to all other peers if 'propagate' is not explicitly False
     if data.get('propagate', True):
@@ -648,12 +654,13 @@ def update_config():
                 try:
                     url = f"http://{p}/config"
                     # Set propagate=False to prevent infinite loops
-                    requests.post(url, json={"r": node.r, "w": node.w, "propagate": False}, timeout=2)
+                    params = {"r": node.r, "w": node.w, "delay": node.delay, "propagate": False}
+                    requests.post(url, json=params, timeout=2)
                 except Exception as e:
                     node.logger.error(f"Failed to propagate config to {p}: {e}")
             threading.Thread(target=replicate_config, args=(peer,)).start()
             
-    return jsonify({"status": "ok", "r": node.r, "w": node.w}), 200
+    return jsonify({"status": "ok", "r": node.r, "w": node.w, "delay": node.delay}), 200
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
