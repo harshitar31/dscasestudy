@@ -24,6 +24,9 @@ class Node:
         self.cart_db_path = os.path.join(self.db_dir, "cart_db.json")
         self.inventory_db_path = os.path.join(self.db_dir, "inventory_db.json")
         
+        # Distributed locking state
+        self.item_locks = {}  # item_id -> coordinator_node_id
+        
         self.setup_logging()
         self.load_databases()
         
@@ -260,95 +263,171 @@ class Node:
         if not cart or not cart.get("items"):
             return False, "Cart is empty or could not be read"
         
-        items_to_buy = cart["items"]
+        items_to_buy = list(cart["items"].keys())
+        if not items_to_buy:
+            return False, "Cart is empty"
+
+        # 2. Acquire Distributed Locks from Majority
+        self.logger.info(f"Attempting to acquire distributed locks for {items_to_buy}")
+        locked_nodes = []
         
-        # 2. Validate inventory (Quorum Read for inventory)
-        # Fetch current inventory from R replicas to ensure consistency
-        self.logger.info("Performing Quorum Read for Inventory validation")
-        quorum_inventory = {} # item -> list of versions
-        
-        def fetch_inv_from_peer(peer, results):
+        def try_lock(peer, results):
             try:
-                url = f"http://{peer}/inventory"
-                response = requests.get(url, timeout=2)
-                if response.status_code == 200:
-                    results.append(response.json())
+                url = f"http://{peer}/inventory/lock"
+                resp = requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=2)
+                if resp.status_code == 200:
+                    results.append(peer)
             except:
                 pass
 
-        peer_inv_results = []
+        # Try local first
+        local_locked = False
+        # Simplified local lock check (index.html will call /inventory/lock on server)
+        # But handle_checkout is internal, so we check node state directly
+        conflict = False
+        for item in items_to_buy:
+            if item in self.item_locks and self.item_locks[item] != self.node_id:
+                conflict = True
+                break
+        
+        if not conflict:
+            for item in items_to_buy:
+                self.item_locks[item] = self.node_id
+            locked_nodes.append("local")
+            local_locked = True
+        else:
+            self.logger.warning("Local lock conflict detected")
+
+        # Try peers
         threads = []
+        peer_results = []
         for peer in self.peers:
-            t = threading.Thread(target=fetch_inv_from_peer, args=(peer, peer_inv_results))
+            t = threading.Thread(target=try_lock, args=(peer, peer_results))
             threads.append(t)
             t.start()
         
-        # Wait for R-1 peers (coordinator is the R-th)
+        # Wait for responses
         start_time = time.time()
-        while len(peer_inv_results) < self.r - 1 and (time.time() - start_time) < 3:
+        # Majority is ceil((N+1)/2). If N=3 peers + 1 local = 4 nodes, majority = 3.
+        # If N=2 peers + 1 local = 3 nodes, majority = 2.
+        total_nodes = len(self.peers) + 1
+        majority = (total_nodes // 2) + 1
+        
+        while (len(peer_results) + (1 if local_locked else 0)) < majority and (time.time() - start_time) < 3:
             time.sleep(0.1)
+        
+        total_locked = len(peer_results) + (1 if local_locked else 0)
+        all_contacted_nodes = peer_results + (["local"] if local_locked else [])
+
+        def release_locks():
+            self.logger.info(f"Releasing locks for {items_to_buy}")
+            # Local
+            for item in items_to_buy:
+                if self.item_locks.get(item) == self.node_id:
+                    del self.item_locks[item]
+            # Peers
+            for peer in self.peers:
+                def do_unlock(p):
+                    try:
+                        requests.post(f"http://{p}/inventory/unlock", json={"node_id": self.node_id, "items": items_to_buy}, timeout=1)
+                    except: pass
+                threading.Thread(target=do_unlock, args=(peer,)).start()
+
+        if total_locked < majority:
+            self.logger.warning(f"Failed to acquire majority locks ({total_locked}/{majority}). Aborting checkout.")
+            release_locks()
+            return False, "System busy (lock conflict), please try again in a moment."
+
+        self.logger.info(f"Majority locks acquired ({total_locked}/{majority}). Proceeding with checkout.")
+
+        try:
+            # 3. Validate inventory (Quorum Read for inventory)
+            # ... rest of the existing logic ...
+            # I will keep the existing logic but wrapped in this lock block
             
-        all_inv_versions = [self.inventory_db] + peer_inv_results
-        
-        # Merge all received inventory versions using Vector Clocks to find "Truth"
-        latest_inventory = all_inv_versions[0]
-        for i in range(1, len(all_inv_versions)):
-            remote_inv = all_inv_versions[i]
-            for item in remote_inv:
-                if item not in latest_inventory:
-                    latest_inventory[item] = remote_inv[item]
-                    continue
+            # Fetch current inventory from R replicas to ensure consistency
+            self.logger.info("Performing Quorum Read for Inventory validation")
+            peer_inv_results = []
+            threads = []
+            for peer in self.peers:
+                def fetch_inv_from_peer(p, results):
+                    try:
+                        url = f"http://{p}/inventory"
+                        response = requests.get(url, timeout=2)
+                        if response.status_code == 200:
+                            results.append(response.json())
+                    except: pass
+                t = threading.Thread(target=fetch_inv_from_peer, args=(peer, peer_inv_results))
+                threads.append(t)
+                t.start()
+            
+            start_time = time.time()
+            while len(peer_inv_results) < self.r - 1 and (time.time() - start_time) < 3:
+                time.sleep(0.1)
                 
-                vc_local = VectorClock(latest_inventory[item].get("vector_clock", {}))
-                vc_remote = VectorClock(remote_inv[item].get("vector_clock", {}))
-                cmp = vc_local.compare(vc_remote)
-                
-                if cmp == -1: # remote is newer
-                    latest_inventory[item] = remote_inv[item]
-                elif cmp == None: # Conflict
-                    latest_inventory[item]["stock"] = max(latest_inventory[item]["stock"], remote_inv[item]["stock"])
-                    latest_inventory[item]["vector_clock"] = vc_local.merge(vc_remote).to_dict()
-        
-        # Now validate against the "Latest/Agreed" inventory
-        for item, qty in items_to_buy.items():
-            current_stock = latest_inventory.get(item, {}).get("stock", 0)
-            if current_stock < qty:
-                return False, f"Insufficient stock for {item}"
-        
-        # Update our local copy if it was stale
-        self.inventory_db = latest_inventory
+            all_inv_versions = [self.inventory_db] + peer_inv_results
+            
+            latest_inventory = all_inv_versions[0]
+            for i in range(1, len(all_inv_versions)):
+                remote_inv = all_inv_versions[i]
+                for item in remote_inv:
+                    if item not in latest_inventory:
+                        latest_inventory[item] = remote_inv[item]
+                        continue
+                    
+                    vc_local = VectorClock(latest_inventory[item].get("vector_clock", {}))
+                    vc_remote = VectorClock(remote_inv[item].get("vector_clock", {}))
+                    cmp = vc_local.compare(vc_remote)
+                    
+                    if cmp == -1: 
+                        latest_inventory[item] = remote_inv[item]
+                    elif cmp == None: 
+                        latest_inventory[item]["stock"] = max(latest_inventory[item]["stock"], remote_inv[item]["stock"])
+                        latest_inventory[item]["vector_clock"] = vc_local.merge(vc_remote).to_dict()
+            
+            # Validate against the "Latest/Agreed" inventory
+            for item, qty in cart["items"].items():
+                current_stock = latest_inventory.get(item, {}).get("stock", 0)
+                if current_stock < qty:
+                    release_locks()
+                    return False, f"Insufficient stock for {item}"
+            
+            self.inventory_db = latest_inventory
 
-        # 3. Update inventory locally and replicate
-        for item, qty in items_to_buy.items():
-            self.inventory_db[item]["stock"] -= qty
-            # Increment inventory vector clock
-            vc = VectorClock(self.inventory_db[item].get("vector_clock", {}))
-            vc.increment(self.node_id)
-            self.inventory_db[item]["vector_clock"] = vc.to_dict()
-        
-        self.save_inventory_db()
-        
-        # Replicate inventory updates
-        for peer in self.peers:
-            def replicate_inv(p):
-                try:
-                    url = f"http://{p}/replicate/inventory"
-                    requests.post(url, json={"inventory": self.inventory_db}, timeout=2)
-                except:
-                    pass
-            threading.Thread(target=replicate_inv, args=(peer,)).start()
+            # 4. Update inventory locally and replicate
+            for item, qty in cart["items"].items():
+                self.inventory_db[item]["stock"] -= qty
+                vc = VectorClock(self.inventory_db[item].get("vector_clock", {}))
+                vc.increment(self.node_id)
+                self.inventory_db[item]["vector_clock"] = vc.to_dict()
+            
+            self.save_inventory_db()
+            
+            # Replicate inventory updates
+            for peer in self.peers:
+                def replicate_inv(p):
+                    try:
+                        url = f"http://{p}/replicate/inventory"
+                        requests.post(url, json={"inventory": self.inventory_db}, timeout=2)
+                    except: pass
+                threading.Thread(target=replicate_inv, args=(peer,)).start()
 
-        # 4. Clear cart and replicate
-        self.cart_db[user_id] = {"items": {}, "vector_clock": cart["vector_clock"]}
-        # Increment VC for cart clearing
-        vc_cart = VectorClock(self.cart_db[user_id]["vector_clock"])
-        vc_cart.increment(self.node_id)
-        self.cart_db[user_id]["vector_clock"] = vc_cart.to_dict()
-        self.save_cart_db()
-        
-        self.trigger_read_repair(user_id, self.cart_db[user_id])
-        
-        return True, "Checkout successful"
+            # 5. Clear cart and replicate
+            self.cart_db[user_id] = {"items": {}, "vector_clock": cart["vector_clock"]}
+            vc_cart = VectorClock(self.cart_db[user_id]["vector_clock"])
+            vc_cart.increment(self.node_id)
+            self.cart_db[user_id]["vector_clock"] = vc_cart.to_dict()
+            self.save_cart_db()
+            
+            self.trigger_read_repair(user_id, self.cart_db[user_id])
+            
+            release_locks()
+            return True, "Checkout successful"
+            
+        except Exception as e:
+            self.logger.error(f"Error during checkout: {e}")
+            release_locks()
+            return False, f"Internal server error during checkout: {str(e)}"
 
     def receive_replicate_inventory(self, remote_inventory):
         for item, remote_data in remote_inventory.items():
@@ -504,6 +583,36 @@ def replicate_inventory():
     data = request.json
     inventory = data.get('inventory')
     node.receive_replicate_inventory(inventory)
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/inventory/lock', methods=['POST'])
+def lock_items():
+    data = request.json
+    items = data.get('items', [])
+    requester = data.get('node_id')
+    
+    # Check if any item is already locked by someone else
+    for item in items:
+        if item in node.item_locks and node.item_locks[item] != requester:
+            return jsonify({"status": "locked", "item": item}), 409
+            
+    # Grant locks
+    for item in items:
+        node.item_locks[item] = requester
+    node.logger.info(f"Locked items {items} for {requester}")
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/inventory/unlock', methods=['POST'])
+def unlock_items():
+    data = request.json
+    items = data.get('items', [])
+    requester = data.get('node_id')
+    
+    for item in items:
+        if node.item_locks.get(item) == requester:
+            del node.item_locks[item]
+            
+    node.logger.info(f"Unlocked items {items} for {requester}")
     return jsonify({"status": "ok"}), 200
 
 @app.route('/config', methods=['POST'])
