@@ -131,11 +131,11 @@ class Node:
         def replicate_to_peer(peer, results):
             try:
                 url = self.get_peer_url(peer, "replicate/write_cart")
-                response = requests.post(url, json={"user_id": user_id, "cart": cart}, timeout=2)
+                response = requests.post(url, json={"user_id": user_id, "cart": cart}, timeout=10)
                 if response.status_code == 200:
                     results.append(True)
             except Exception as e:
-                self.logger.error(f"Failed to replicate to {peer}: {e}")
+                self.logger.error(f"Failed to replicate cart to {peer}: {e}")
 
         threads = []
         replication_results = []
@@ -224,9 +224,10 @@ class Node:
         def repair_peer(peer):
             try:
                 url = self.get_peer_url(peer, "replicate/write_cart")
-                requests.post(url, json={"user_id": user_id, "cart": latest_cart}, timeout=1)
-            except:
-                pass
+                requests.post(url, json={"user_id": user_id, "cart": latest_cart}, timeout=10)
+                self.logger.info(f"Read repair successful for {peer}")
+            except Exception as e:
+                self.logger.error(f"Read repair failed for {peer}: {e}")
         
         # Also repair local if it was stale (though handled by logic above, let's just make sure)
         self.cart_db[user_id] = latest_cart
@@ -328,11 +329,11 @@ class Node:
         def try_lock(peer, results):
             try:
                 url = self.get_peer_url(peer, "inventory/lock")
-                resp = requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=2)
+                resp = requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=10)
                 if resp.status_code == 200:
                     results.append(peer)
-            except:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Lock request to {peer} failed: {e}")
 
         # Try local first
         local_locked = False
@@ -384,8 +385,9 @@ class Node:
                 def do_unlock(p):
                     try:
                         url = self.get_peer_url(p, "inventory/unlock")
-                        requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=1)
-                    except: pass
+                        requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=10)
+                    except Exception as e:
+                        self.logger.error(f"Unlock request to {p} failed: {e}")
                 threading.Thread(target=do_unlock, args=(peer,)).start()
 
         if total_locked < majority:
@@ -463,8 +465,11 @@ class Node:
                 def replicate_inv(p):
                     try:
                         url = self.get_peer_url(p, "replicate/inventory")
-                        requests.post(url, json={"inventory": self.inventory_db}, timeout=2)
-                    except: pass
+                        resp = requests.post(url, json={"inventory": self.inventory_db}, timeout=10)
+                        if resp.status_code == 200:
+                            self.logger.info(f"Replicated inventory to {p}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to replicate inventory to {p}: {e}")
                 threading.Thread(target=replicate_inv, args=(peer,)).start()
 
             # 5. Clear cart and replicate
@@ -476,6 +481,7 @@ class Node:
             
             self.trigger_read_repair(user_id, self.cart_db[user_id])
             
+            self.logger.info(f"Checkout finalized for {user_id}. Replicated state to peers.")
             release_locks()
             return True, "Checkout successful"
             
@@ -514,14 +520,14 @@ class Node:
                 self.logger.info(f"Syncing with peer {peer}")
                 # 1. Sync Inventory
                 inv_url = self.get_peer_url(peer, "inventory")
-                inv_response = requests.get(inv_url, timeout=3)
+                inv_response = requests.get(inv_url, timeout=10)
                 if inv_response.status_code == 200:
                     self.receive_replicate_inventory(inv_response.json())
                     self.logger.info(f"Successfully synced inventory with {peer}")
 
                 # 2. Sync Quorum Configuration (R, W)
                 state_url = self.get_peer_url(peer, "state")
-                state_response = requests.get(state_url, timeout=3)
+                state_response = requests.get(state_url, timeout=10)
                 if state_response.status_code == 200:
                     data = state_response.json()
                     new_r = data.get('r')
