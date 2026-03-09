@@ -7,17 +7,19 @@ from flask import Flask, request, jsonify, render_template
 from vector_clock import VectorClock
 import threading
 import time
+from pyngrok import ngrok
 
 app = Flask(__name__)
 
 class Node:
-    def __init__(self, node_id, port, peers, n=3, r=2, w=2):
+    def __init__(self, node_id, port, peers, n=3, r=2, w=2, public_url=None):
         self.node_id = node_id
         self.port = port
-        self.peers = peers  # List of "host:port"
+        self.peers = peers  # List of "host:port" or "ngrok-url"
         self.n = n
         self.r = r
         self.w = w
+        self.public_url = public_url
         
         self.db_dir = f"db_{node_id}"
         os.makedirs(self.db_dir, exist_ok=True)
@@ -128,7 +130,7 @@ class Node:
         
         def replicate_to_peer(peer, results):
             try:
-                url = f"http://{peer}/replicate/write_cart"
+                url = self.get_peer_url(peer, "replicate/write_cart")
                 response = requests.post(url, json={"user_id": user_id, "cart": cart}, timeout=2)
                 if response.status_code == 200:
                     results.append(True)
@@ -165,7 +167,7 @@ class Node:
         
         def fetch_from_peer(peer, results):
             try:
-                url = f"http://{peer}/replicate/read_cart"
+                url = self.get_peer_url(peer, "replicate/read_cart")
                 response = requests.get(url, params={"user_id": user_id}, timeout=2)
                 if response.status_code == 200:
                     results.append(response.json().get("cart"))
@@ -221,7 +223,7 @@ class Node:
     def trigger_read_repair(self, user_id, latest_cart):
         def repair_peer(peer):
             try:
-                url = f"http://{peer}/replicate/write_cart"
+                url = self.get_peer_url(peer, "replicate/write_cart")
                 requests.post(url, json={"user_id": user_id, "cart": latest_cart}, timeout=1)
             except:
                 pass
@@ -232,6 +234,58 @@ class Node:
 
         for peer in self.peers:
             threading.Thread(target=repair_peer, args=(peer,)).start()
+
+    def get_peer_url(self, peer_addr, path):
+        if peer_addr.startswith("http"):
+            return f"{peer_addr.rstrip('/')}/{path.lstrip('/')}"
+        return f"http://{peer_addr}/{path.lstrip('/')}"
+
+    def add_peer(self, peer_addr, announce_back=True):
+        # Normalize and avoid self-peering
+        if not peer_addr: return False
+        
+        # Don't add if already exists or is self
+        if peer_addr in self.peers: return False
+        if peer_addr == self.public_url: return False
+        if peer_addr.split(':')[-1] == str(self.port) and ('localhost' in peer_addr or '127.0.0.1' in peer_addr):
+            return False
+
+        self.peers.append(peer_addr)
+        self.logger.info(f"Dynamically added new peer: {peer_addr}")
+        
+        # Tell them to add us back if they don't know us
+        if announce_back and self.public_url:
+            def announce_to_new_peer():
+                try:
+                    url = self.get_peer_url(peer_addr, "peers/add")
+                    requests.post(url, json={"peer_url": self.public_url, "announce_back": False}, timeout=2)
+                except:
+                    pass
+            threading.Thread(target=announce_to_new_peer, daemon=True).start()
+
+        # Immediately sync with the new peer
+        threading.Thread(target=self.sync_with_specific_peer, args=(peer_addr,), daemon=True).start()
+        return True
+
+    def sync_with_specific_peer(self, peer):
+        self.logger.info(f"Catching up with new peer: {peer}")
+        try:
+             # Sync inventory
+             inv_url = self.get_peer_url(peer, "inventory")
+             resp = requests.get(inv_url, timeout=3)
+             if resp.status_code == 200:
+                 self.receive_replicate_inventory(resp.json())
+             
+             # Sync config
+             state_url = self.get_peer_url(peer, "state")
+             resp = requests.get(state_url, timeout=3)
+             if resp.status_code == 200:
+                 data = resp.json()
+                 self.r = data.get('r', self.r)
+                 self.w = data.get('w', self.w)
+             self.logger.info(f"Successfully caught up with {peer}")
+        except Exception as e:
+            self.logger.error(f"Failed to catch up with {peer}: {e}")
 
     # Replicate Write Handlers
     def receive_replicate_write(self, user_id, remote_cart):
@@ -273,7 +327,7 @@ class Node:
         
         def try_lock(peer, results):
             try:
-                url = f"http://{peer}/inventory/lock"
+                url = self.get_peer_url(peer, "inventory/lock")
                 resp = requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=2)
                 if resp.status_code == 200:
                     results.append(peer)
@@ -329,7 +383,8 @@ class Node:
             for peer in self.peers:
                 def do_unlock(p):
                     try:
-                        requests.post(f"http://{p}/inventory/unlock", json={"node_id": self.node_id, "items": items_to_buy}, timeout=1)
+                        url = self.get_peer_url(p, "inventory/unlock")
+                        requests.post(url, json={"node_id": self.node_id, "items": items_to_buy}, timeout=1)
                     except: pass
                 threading.Thread(target=do_unlock, args=(peer,)).start()
 
@@ -352,7 +407,7 @@ class Node:
             for peer in self.peers:
                 def fetch_inv_from_peer(p, results):
                     try:
-                        url = f"http://{p}/inventory"
+                        url = self.get_peer_url(p, "inventory")
                         response = requests.get(url, timeout=2)
                         if response.status_code == 200:
                             results.append(response.json())
@@ -407,7 +462,7 @@ class Node:
             for peer in self.peers:
                 def replicate_inv(p):
                     try:
-                        url = f"http://{p}/replicate/inventory"
+                        url = self.get_peer_url(p, "replicate/inventory")
                         requests.post(url, json={"inventory": self.inventory_db}, timeout=2)
                     except: pass
                 threading.Thread(target=replicate_inv, args=(peer,)).start()
@@ -458,14 +513,14 @@ class Node:
             try:
                 self.logger.info(f"Syncing with peer {peer}")
                 # 1. Sync Inventory
-                inv_url = f"http://{peer}/inventory"
+                inv_url = self.get_peer_url(peer, "inventory")
                 inv_response = requests.get(inv_url, timeout=3)
                 if inv_response.status_code == 200:
                     self.receive_replicate_inventory(inv_response.json())
                     self.logger.info(f"Successfully synced inventory with {peer}")
 
                 # 2. Sync Quorum Configuration (R, W)
-                state_url = f"http://{peer}/state"
+                state_url = self.get_peer_url(peer, "state")
                 state_response = requests.get(state_url, timeout=3)
                 if state_response.status_code == 200:
                     data = state_response.json()
@@ -494,6 +549,7 @@ def get_state():
         "n": node.n,
         "r": node.r,
         "w": node.w,
+        "public_url": node.public_url,
         "cart": node.cart_db.get(user_id, {"items": {}, "vector_clock": {}}),
         "inventory": node.inventory_db
     }), 200
@@ -576,7 +632,8 @@ def manage_inventory():
     for peer in node.peers:
         def replicate_inv(p):
             try:
-                requests.post(f"http://{p}/replicate/inventory", json={"inventory": node.inventory_db}, timeout=2)
+                url = node.get_peer_url(p, "replicate/inventory")
+                requests.post(url, json={"inventory": node.inventory_db}, timeout=2)
             except:
                 pass
         threading.Thread(target=replicate_inv, args=(peer,)).start()
@@ -603,6 +660,16 @@ def replicate_inventory():
     inventory = data.get('inventory')
     node.receive_replicate_inventory(inventory)
     return jsonify({"status": "ok"}), 200
+
+@app.route('/peers/add', methods=['POST'])
+def add_peer_endpoint():
+    data = request.json
+    peer_url = data.get('peer_url')
+    announce_back = data.get('announce_back', True)
+    if peer_url:
+        added = node.add_peer(peer_url, announce_back=announce_back)
+        return jsonify({"status": "ok", "added": added}), 200
+    return jsonify({"status": "error", "message": "Missing peer_url"}), 400
 
 @app.route('/inventory/lock', methods=['POST'])
 def lock_items():
@@ -646,7 +713,7 @@ def update_config():
         for peer in node.peers:
             def replicate_config(p):
                 try:
-                    url = f"http://{p}/config"
+                    url = node.get_peer_url(p, "config")
                     # Set propagate=False to prevent infinite loops
                     requests.post(url, json={"r": node.r, "w": node.w, "propagate": False}, timeout=2)
                 except Exception as e:
@@ -659,14 +726,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--node_id", required=True)
     parser.add_argument("--port", type=int, required=True)
-    parser.add_argument("--peers", help="Comma separated list of peer host:port")
+    parser.add_argument("--peers", default="", help="Comma separated list of peer host:port or ngrok-vols")
     parser.add_argument("--n", type=int, default=3)
     parser.add_argument("--r", type=int, default=2)
     parser.add_argument("--w", type=int, default=2)
+    parser.add_argument("--use_ngrok", action="store_true", help="Start an ngrok tunnel")
+    parser.add_argument("--ngrok_token", help="Ngrok auth token")
     
     args = parser.parse_args()
     
+    public_url = None
+    if args.use_ngrok:
+        if args.ngrok_token:
+            ngrok.set_auth_token(args.ngrok_token)
+        tunnel = ngrok.connect(args.port)
+        public_url = tunnel.public_url
+        print(f" * Ngrok Tunnel established: {public_url}")
+
     peers = args.peers.split(",") if args.peers else []
-    node = Node(args.node_id, args.port, peers, n=args.n, r=args.r, w=args.w)
+    node = Node(args.node_id, args.port, peers, n=args.n, r=args.r, w=args.w, public_url=public_url)
     
     app.run(host='0.0.0.0', port=args.port)

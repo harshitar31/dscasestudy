@@ -319,6 +319,9 @@
                                 id="info-r">-</span></div>
                         <div class="data-row"><span class="data-label">Write Config (W)</span><span class="data-value"
                                 id="info-w">-</span></div>
+                        <div class="data-row"><span class="data-label">Public Access (Ngrok)</span><span
+                                class="data-value" id="info-public"
+                                style="font-size: 0.75rem; color: var(--success);">-</span></div>
                     </div>
 
                     <div class="form-group" style="padding-left: 0;">
@@ -338,6 +341,14 @@
                         <button onclick="updateConfig()" style="margin-top: 8px;"><i class="fa-solid fa-save"></i> Save
                             Rules</button>
                         <div id="config-status" class="status-msg"></div>
+                    </div>
+
+                    <div class="form-group" style="padding-left: 0;">
+                        <label class="data-label" style="margin-bottom: 4px;">Join Cluster (Add Peer)</label>
+                        <input type="text" id="input-peer-url" placeholder="https://abc.ngrok-free.app"
+                            style="width: 100%;">
+                        <button onclick="addPeer()"><i class="fa-solid fa-link"></i> Connect to Peer</button>
+                        <div id="peer-status" class="status-msg"></div>
                     </div>
                 </div>
             </div>
@@ -414,7 +425,8 @@
                 <button class="btn-checkout" style="flex: 2;" onclick="checkout()">
                     <i class="fa-solid fa-credit-card"></i> Checkout
                 </button>
-                <button class="btn-primary-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);" onclick="emptyCart()">
+                <button class="btn-primary-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);"
+                    onclick="emptyCart()">
                     <i class="fa-solid fa-trash-can"></i> Empty
                 </button>
             </div>
@@ -502,6 +514,7 @@
                 updateField('info-r', data.r);
                 updateField('info-w', data.w);
                 updateField('info-n', data.n);
+                updateField('info-public', data.public_url || "Local Only");
 
                 currentNodeId = data.node_id;
 
@@ -721,6 +734,42 @@
                 }
             } catch (e) {
                 statusEl.textContent = "Update failed";
+                statusEl.className = "status-msg error";
+            }
+        }
+
+        async function addPeer() {
+            const peerUrl = document.getElementById('input-peer-url').value.trim();
+            const statusEl = document.getElementById('peer-status');
+
+            if (!peerUrl) {
+                statusEl.textContent = "Please enter a URL";
+                statusEl.className = "status-msg error";
+                return;
+            }
+
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...`;
+            statusEl.className = "status-msg";
+
+            try {
+                const res = await fetch('/peers/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ peer_url: peerUrl })
+                });
+
+                if (res.ok) {
+                    statusEl.innerHTML = `<i class="fa-solid fa-check"></i> Peer added and synced!`;
+                    statusEl.className = "status-msg success";
+                    document.getElementById('input-peer-url').value = '';
+                    fetchState();
+                    setTimeout(() => { statusEl.textContent = ""; }, 3000);
+                } else {
+                    statusEl.textContent = "Failed to add peer";
+                    statusEl.className = "status-msg error";
+                }
+            } catch (e) {
+                statusEl.textContent = "Network error";
                 statusEl.className = "status-msg error";
             }
         }
