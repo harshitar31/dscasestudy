@@ -410,8 +410,14 @@
                 <pre id="cart-vc">{}</pre>
             </div>
 
-            <button class="btn-checkout" style="width: 100%; margin-top: 24px;" onclick="checkout()"><i
-                    class="fa-solid fa-credit-card"></i> Proceed to Checkout</button>
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button class="btn-checkout" style="flex: 2;" onclick="checkout()">
+                    <i class="fa-solid fa-credit-card"></i> Checkout
+                </button>
+                <button class="btn-primary-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);" onclick="emptyCart()">
+                    <i class="fa-solid fa-trash-can"></i> Empty
+                </button>
+            </div>
             <div id="checkout-status" class="status-msg"></div>
         </div>
 
@@ -611,6 +617,35 @@
                 fetchState();
             } catch (e) {
                 statusEl.innerHTML = `<i class="fa-solid fa-xmark"></i> Network Error`;
+                statusEl.className = "status-msg error";
+            }
+        }
+
+        async function emptyCart() {
+            const userId = document.getElementById('view-user-id').value;
+            const statusEl = document.getElementById('checkout-status');
+
+            if (!userId) return;
+            if (!confirm("Are you sure you want to empty your cart?")) return;
+
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Emptying cart...`;
+            statusEl.className = "status-msg";
+
+            try {
+                const res = await fetch('/cart/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                if (res.ok) {
+                    statusEl.innerHTML = `<i class="fa-solid fa-trash-check"></i> Cart Cleared`;
+                    statusEl.className = "status-msg success";
+                    fetchState();
+                    setTimeout(() => { statusEl.textContent = ""; }, 3000);
+                }
+            } catch (e) {
+                statusEl.textContent = "Error emptying cart";
                 statusEl.className = "status-msg error";
             }
         }

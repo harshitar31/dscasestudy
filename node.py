@@ -531,6 +531,25 @@ def checkout():
     else:
         return jsonify({"status": "error", "message": message}), 400
 
+@app.route('/cart/clear', methods=['POST'])
+def clear_cart():
+    data = request.json
+    user_id = data.get('user_id')
+    
+    # Update local
+    local_cart = node.cart_db.get(user_id, {"items": {}, "vector_clock": {}})
+    vc = VectorClock(local_cart["vector_clock"])
+    vc.increment(node.node_id)
+    new_cart = {"items": {}, "vector_clock": vc.to_dict()}
+    
+    node.cart_db[user_id] = new_cart
+    node.save_cart_db()
+    
+    # Replicate (using read repair logic)
+    node.trigger_read_repair(user_id, new_cart)
+    
+    return jsonify({"status": "success", "message": "Cart cleared"}), 200
+
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     return jsonify(node.inventory_db), 200
