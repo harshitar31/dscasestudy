@@ -370,19 +370,33 @@ class Node:
         return True
 
     def sync_inventory_with_peers(self):
-        """On startup, fetch inventory from peers to catch up on missed checkouts/updates."""
-        self.logger.info("Initializing startup peer-sync for inventory...")
+        """On startup, fetch inventory and quorum config from peers to catch up."""
+        self.logger.info("Initializing startup peer-sync for inventory and configuration...")
         # Give a small delay for other nodes to potentially start up if launched in batch
         time.sleep(2)
         
         for peer in self.peers:
             try:
                 self.logger.info(f"Syncing with peer {peer}")
-                url = f"http://{peer}/inventory"
-                response = requests.get(url, timeout=3)
-                if response.status_code == 200:
-                    self.receive_replicate_inventory(response.json())
-                    self.logger.info(f"Successfully synced with {peer}")
+                # 1. Sync Inventory
+                inv_url = f"http://{peer}/inventory"
+                inv_response = requests.get(inv_url, timeout=3)
+                if inv_response.status_code == 200:
+                    self.receive_replicate_inventory(inv_response.json())
+                    self.logger.info(f"Successfully synced inventory with {peer}")
+
+                # 2. Sync Quorum Configuration (R, W)
+                state_url = f"http://{peer}/state"
+                state_response = requests.get(state_url, timeout=3)
+                if state_response.status_code == 200:
+                    data = state_response.json()
+                    new_r = data.get('r')
+                    new_w = data.get('w')
+                    if new_r and new_w and (new_r != self.r or new_w != self.w):
+                        self.logger.info(f"Updating quorum config from peer {peer}: R={new_r}, W={new_w} (was R={self.r}, W={self.w})")
+                        self.r = new_r
+                        self.w = new_w
+                        
             except Exception as e:
                 self.logger.debug(f"Could not sync with {peer} during startup: {e}")
 
